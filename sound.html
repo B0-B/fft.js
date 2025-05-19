@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <div>
+            <canvas id="data-chart"></canvas>
+        </div>
+        <div>
+            <canvas id="freq-chart"></canvas>
+        </div>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    </head>
+    <body>
+        <script src="chart.js"></script>
+        <script src="fft.js"></script>
+        <script src="testing.js"></script>
+        <script>
+
+            // test sound url to visualize
+            const test_sound_url = 'https://cdn.pixabay.com/download/audio/2022/03/24/audio_68176f19d9.mp3?filename=analog-tape-test-tone-from-cassette-1995-101203.mp3';
+        
+            // fetch load mp3 data
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const fetch_wave_form = url => {
+                return fetch(url)
+                    .then(response => response.arrayBuffer())
+                    .then(arrayBuffer => audioContext.decodeAudioData(arrayBuffer))
+                    .then(audioBuffer => {
+                        // Extract the data from the first channel
+                        const waveformArray = audioBuffer.getChannelData(0);
+                        return waveformArray;
+                    });
+            };
+
+            async function visualize_wave_form () {
+                
+                // fetch the wave form
+                const sample_range = [0, 10000];
+                const wave = await fetch_wave_form( test_sound_url );
+                console.log('wave point', wave[1000])
+
+                // convert to classic array and cut the wave
+                var wave_array = Array.from(wave);
+                
+                // define the signal by cropping the wave
+                // const signal = new Float32Array(wave_array.slice(sample_range[0], sample_range[1]));
+                const signal = wave_array.slice(sample_range[0], sample_range[1]);
+                // const signal = wave_array.slice(0);
+                console.log('signal array', signal)
+                console.log('signal size', signal.length)
+                // 
+                // const signal = wave_array.slice(sample_range[0], sample_range[1]);
+                // delete wave;
+
+                // create time labels
+                const sample_rate = 44000;
+                const dt = 1 / sample_rate; // time interval in seconds
+                var time_array = [];
+                for (let i = 0; i < signal.length; i++)
+                    time_array.push(round((sample_range[0] + i) * dt, 4)); 
+
+                // add the wave to data chart
+                data_chart.data.datasets[0].data = signal;
+                data_chart.data.labels = time_array;
+
+                // create equalizer
+                const fourier = fft.trans(signal);
+                const spectrum = fft.spectrum(fourier).slice(0, Math.floor(fourier.length/2));
+                const time_labels = fft.freq(spectrum, sample_rate, decimals=8, rad=false)
+                freq_chart.data.datasets[0].data = spectrum;
+                freq_chart.data.labels = time_labels;
+
+                // update charts
+                data_chart.update();
+                freq_chart.update();
+
+            }
+
+            visualize_wave_form()
+
+        </script>
+    </body>
+</html>

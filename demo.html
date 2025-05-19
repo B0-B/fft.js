@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <div>
+            <canvas id="data-chart"></canvas>
+        </div>
+        <div>
+            <canvas id="freq-chart"></canvas>
+        </div>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    </head>
+    <body>
+        <script src="chart.js"></script>
+        <script src="fft.js"></script>
+        <script src="testing.js"></script>
+        <script>
+        
+            // generate harmonic signal with arbitrary frequencies
+            const sampling_rate = 40; // sample points per x-axis unit e.g. 1s
+            function generate (total_time=1, rad=false) {
+                const max_freq = Math.max(arguments);
+                // Extract frequencies from arguments.
+                const frequencies = Array.prototype.slice.call(arguments).slice(2);
+                // Nyquist Limit
+                if (max_freq > (sampling_rate - 1) / 2) {
+                    console.log(`Sampling rate must be at least ${2*max_freq+1} or higher.`)
+                    return
+                }
+                // Define parameters.
+                const dt = 1. / sampling_rate;
+                const time_steps = total_time * sampling_rate;
+                let f,
+                    y,
+                    t = 0,
+                    y_arr = [], 
+                    x_arr = [];
+                // Generate function values.
+                for (let i = 0; i < time_steps; i++) {
+                    y = 0;
+                    for (var j = 0; j < frequencies.length; j++) {
+                        if (rad)
+                            y += Math.sin(2 * Math.PI * frequencies[j] * t);
+                        else
+                            y += Math.sin(frequencies[j] * t);
+                    }
+                    x_arr.push(round(t, 2));
+                    y_arr.push(y);
+                    t += dt;   
+                }
+                return [x_arr, y_arr]
+            }
+            
+            // generate harmonic data
+            const f = 1; // frequency in Hz
+            let data = generate(10, true, f, 2, 5);
+            // compute frequency spectrum
+            const F = fft.trans(data[1]);
+            let spec = fft.spectrum(F);
+            // compute frequency labels
+            let freq = fft.freq(data[0], sampling_rate, rad=true);
+            let out = fft.spectrum(F);
+            // reconstruct the input signal data
+            let reco = fft.re(fft.inverse(F));
+
+            // update the charts with data and fourier space
+            data_chart.data.datasets[0].data = data[1];
+            data_chart.data.datasets.push({
+                        label: 'reconstructed',
+                        data: reco,
+                        borderWidth: 1
+                    });
+            freq_chart.data.datasets[0].data = out;
+            data_chart.data.labels = data[0];
+            freq_chart.data.labels = freq;
+            data_chart.update();
+            freq_chart.update();
+
+        </script>
+    </body>
+</html>
